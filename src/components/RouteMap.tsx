@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Button } from 'antd';
@@ -61,7 +61,7 @@ interface Props {
   searchLoading: boolean;
 }
 
-export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, searchLoading }: Props) {
+export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch }: Props) {
   const center: [number, number] = homeBase
     ? [homeBase.coords.lat, homeBase.coords.lng]
     : [39.8283, -98.5795]; // US center

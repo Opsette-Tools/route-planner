@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Typography, Card, Alert, FloatButton, Row, Col, message } from 'antd';
+import { Typography, Alert, FloatButton, Row, Col, message } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import AppHeader from '@/components/AppHeader';
 import SettingsDrawer from '@/components/SettingsDrawer';

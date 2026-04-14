@@ -1,4 +1,4 @@
-import { Card, Steps, Statistic, Alert, Empty } from 'antd';
+import { Card, Steps, Statistic, Empty } from 'antd';
 import { ClockCircleOutlined, CarOutlined } from '@ant-design/icons';
 import type { RouteResult } from '@/types/route';
 
@@ -20,7 +20,7 @@ export default function RouteDetails({ routeResult, stopCount }: Props) {
   const stepsItems = routeResult.legs.map((leg, i) => ({
     title: `${leg.from} → ${leg.to}`,
     description: `${leg.distance} mi, ~${leg.duration} min`,
-    status: (leg.duration > 30 ? 'warning' : 'process') as 'warning' | 'process',
+    status: (leg.duration > 30 ? 'error' : 'process') as 'error' | 'process',
     icon: (
       <div style={{
         width: 22, height: 22, borderRadius: '50%',

@@ -1,4 +1,4 @@
-import { Drawer, List, Button, Tag, Typography, Popconfirm, Empty, Statistic, Space } from 'antd';
+import { Drawer, List, Button, Tag, Typography, Popconfirm, Empty, Space } from 'antd';
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { SavedRoute } from '@/types/route';
 import { useIsMobile } from '@/hooks/use-mobile';
