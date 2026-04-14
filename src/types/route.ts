@@ -29,6 +29,7 @@ export interface RouteResult {
   totalDuration: number;
   geometry: [number, number][][]; // array of leg geometries
   orderedStopIds: string[];
+  optimized: boolean;
 }
 
 export interface SavedRoute {

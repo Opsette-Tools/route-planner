@@ -1,5 +1,5 @@
 import { List, Typography, Tag, Button, Alert } from 'antd';
-import { DeleteOutlined, HolderOutlined } from '@ant-design/icons';
+import { DeleteOutlined, HolderOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -25,6 +25,16 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
     <div ref={setNodeRef} style={style} {...attributes}>
       <List.Item
         actions={[
+          <Button
+            type="text"
+            icon={<EnvironmentOutlined />}
+            size="small"
+            title="Open in Google Maps"
+            onClick={() => window.open(
+              `https://www.google.com/maps/dir/?api=1&destination=${stop.coords.lat},${stop.coords.lng}`,
+              '_blank'
+            )}
+          />,
           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(stop.id)} size="small" />
         ]}
       >

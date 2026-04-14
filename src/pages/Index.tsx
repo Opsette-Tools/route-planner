@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Typography, Alert, FloatButton, Row, Col, message } from 'antd';
+import { Link } from 'react-router-dom';
+import { Typography, Alert, FloatButton, Row, Col, message, Space } from 'antd';
 import { ThunderboltOutlined } from '@ant-design/icons';
 import AppHeader from '@/components/AppHeader';
 import SettingsDrawer from '@/components/SettingsDrawer';
@@ -68,7 +69,11 @@ export default function Index() {
       setRouteResult(result);
       setRouteGeometry(result.geometry);
       setIsOptimized(true);
-      message.success('Route optimized!');
+      if (result.optimized) {
+        message.success('Route optimized!');
+      } else {
+        message.warning('Route could not be optimized, showing original order.');
+      }
     } else {
       message.error('Optimization failed. Try fewer stops.');
     }
@@ -218,6 +223,13 @@ export default function Index() {
         onDelete={(id) => setSavedRoutes(prev => prev.filter(r => r.id !== id))}
         onClearAll={() => setSavedRoutes([])}
       />
+
+      <footer style={{ textAlign: 'center', padding: '16px 0', borderTop: '1px solid #f0f0f0', marginTop: 16 }}>
+        <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
+          <Link to="/about" style={{ fontSize: 12, color: '#8c8c8c' }}>About</Link>
+          <Link to="/privacy" style={{ fontSize: 12, color: '#8c8c8c' }}>Privacy Policy</Link>
+        </Space>
+      </footer>
     </div>
   );
 }

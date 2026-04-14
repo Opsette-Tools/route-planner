@@ -1,6 +1,6 @@
 import { Button, Space, Popconfirm, Badge, Modal, Input, message } from 'antd';
 import {
-  ThunderboltOutlined, SaveOutlined, ShareAltOutlined, ClearOutlined, ExperimentOutlined,
+  ThunderboltOutlined, SaveOutlined, ShareAltOutlined, ClearOutlined, ExperimentOutlined, DownloadOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import type { Stop, RouteResult, HomeBase } from '@/types/route';
@@ -23,6 +23,23 @@ export default function RouteActions({
 }: Props) {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [routeName, setRouteName] = useState('');
+
+  const handleExport = () => {
+    if (!routeResult) return;
+    const header = 'Stop #,Label,Address,Leg Distance (mi),Leg Duration (min)\n';
+    const rows = stops.map((s, i) => {
+      const leg = routeResult.legs[i];
+      return `${i + 1},"${(s.label || '').replace(/"/g, '""')}","${s.address.replace(/"/g, '""')}",${leg?.distance ?? ''},${leg?.duration ?? ''}`;
+    }).join('\n');
+    const footer = `\nTotal,,,${routeResult.totalDistance},${routeResult.totalDuration}`;
+    const blob = new Blob([header + rows + footer], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `route-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleShare = () => {
     if (!routeResult) return;
@@ -58,6 +75,9 @@ export default function RouteActions({
         </Button>
         <Button icon={<ShareAltOutlined />} disabled={!routeResult} onClick={handleShare}>
           Share
+        </Button>
+        <Button icon={<DownloadOutlined />} disabled={!routeResult} onClick={handleExport}>
+          Export CSV
         </Button>
         <Popconfirm title="Clear all stops?" onConfirm={onClear} disabled={stops.length === 0}>
           <Button icon={<ClearOutlined />} disabled={stops.length === 0}>Clear</Button>

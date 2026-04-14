@@ -1,0 +1,49 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'>
+  <defs>
+    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#3B82F6'/>
+      <stop offset='100%' stop-color='#1D4ED8'/>
+    </linearGradient>
+    <linearGradient id='road' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#ffffff' stop-opacity='0.95'/>
+      <stop offset='100%' stop-color='#E0E7FF' stop-opacity='0.9'/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x='0' y='0' width='512' height='512' rx='112.64' fill='url(#bg)'/>
+
+  <!-- Subtle inner shadow / border -->
+  <rect x='10.24' y='10.24' width='491.52' height='491.52' rx='102.4' fill='none' stroke='white' stroke-opacity='0.15' stroke-width='5.12'/>
+
+  <!-- Route line (curved path) -->
+  <path d='M 128 368.64 Q 153.6 230.4, 256 215.04 T 384 153.6'
+        fill='none' stroke='white' stroke-opacity='0.3' stroke-width='17.92' stroke-linecap='round'/>
+
+  <!-- Map pin -->
+  <g transform='translate(256, 215.04)'>
+    <!-- Pin shadow -->
+    <ellipse cx='0' cy='112.64' rx='40.96' ry='12.8' fill='black' opacity='0.15'/>
+
+    <!-- Pin body -->
+    <path d='M 0 102.4 C -20.48 61.44, -76.8 30.72, -76.8 -20.48
+             C -76.8 -74.24, -42.496 -115.2, 0 -115.2
+             C 42.496 -115.2, 76.8 -74.24, 76.8 -20.48
+             C 76.8 30.72, 20.48 61.44, 0 102.4 Z'
+          fill='white'/>
+
+    <!-- Pin inner circle -->
+    <circle cx='0' cy='-20.48' r='33.28' fill='url(#bg)'/>
+
+    <!-- Pin highlight -->
+    <circle cx='-15.36' cy='-46.08' r='12.8' fill='white' opacity='0.5'/>
+  </g>
+
+  <!-- Route dots -->
+  <circle cx='128' cy='368.64' r='17.92' fill='white' opacity='0.9'/>
+  <circle cx='384' cy='153.6' r='17.92' fill='white' opacity='0.9'/>
+
+  <!-- Small route tick marks -->
+  <circle cx='179.2' cy='266.24' r='7.68' fill='white' opacity='0.5'/>
+  <circle cx='317.44' cy='194.56' r='7.68' fill='white' opacity='0.5'/>
+</svg>

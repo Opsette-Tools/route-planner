@@ -1,8 +1,9 @@
 
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { Button } from 'antd';
-import { FullscreenOutlined } from '@ant-design/icons';
+import { FullscreenOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { HomeBase, Stop } from '@/types/route';
 import 'leaflet/dist/leaflet.css';
 
@@ -34,6 +35,18 @@ function createStopIcon(num: number) {
   });
 }
 
+function RecenterMap({ homeBase }: { homeBase: HomeBase | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (homeBase) {
+      map.flyTo([homeBase.coords.lat, homeBase.coords.lng], 12, { duration: 1 });
+    }
+  }, [homeBase?.coords.lat, homeBase?.coords.lng, map]);
+
+  return null;
+}
+
 function FitBoundsControl({ homeBase, stops }: { homeBase: HomeBase | null; stops: Stop[] }) {
   const map = useMap();
 
@@ -61,7 +74,7 @@ interface Props {
   searchLoading: boolean;
 }
 
-export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch }: Props) {
+export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, searchLoading }: Props) {
   const center: [number, number] = homeBase
     ? [homeBase.coords.lat, homeBase.coords.lng]
     : [39.8283, -98.5795]; // US center
@@ -73,13 +86,16 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
         position: 'absolute', top: 12, left: 12, right: 52, zIndex: 1000,
         background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
         borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        display: 'flex', alignItems: 'center',
       }}>
         <input
           type="text"
           placeholder="Search address to add stop..."
+          disabled={searchLoading}
           style={{
-            width: '100%', padding: '8px 12px', border: 'none', outline: 'none',
+            flex: 1, padding: '8px 12px', border: 'none', outline: 'none',
             background: 'transparent', fontSize: 14, borderRadius: 8,
+            opacity: searchLoading ? 0.6 : 1,
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -88,19 +104,22 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
             }
           }}
         />
+        {searchLoading && <LoadingOutlined style={{ marginRight: 10, color: '#2563EB' }} />}
       </div>
 
       <MapContainer
         center={center}
         zoom={homeBase ? 12 : 4}
         style={{ height: '50vh', minHeight: 300 }}
-        zoomControl={true}
+        zoomControl={false}
       >
+        <ZoomControl position="bottomright" />
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         <FitBoundsControl homeBase={homeBase} stops={stops} />
+        <RecenterMap homeBase={homeBase} />
 
         {homeBase && (
           <Marker position={[homeBase.coords.lat, homeBase.coords.lng]} icon={createHomeIcon()}>

@@ -43,8 +43,9 @@ export async function optimizeRoute(
 
     // If we couldn't map properly, fall back to using the trip legs order
     if (orderedStopIds.length !== stops.length) {
-      // Fallback: just return stops in original order
-      return await getRouteForOrderedStops(homeBase, stops);
+      const fallback = await getRouteForOrderedStops(homeBase, stops);
+      if (fallback) fallback.optimized = false;
+      return fallback;
     }
 
     const legs: RouteLeg[] = [];
@@ -68,6 +69,7 @@ export async function optimizeRoute(
       totalDuration: secondsToMinutes(trip.duration),
       geometry: [trip.geometry.coordinates.map((c: number[]) => [c[1], c[0]])],
       orderedStopIds,
+      optimized: true,
     };
   } catch {
     return null;
@@ -104,6 +106,7 @@ export async function getRouteForOrderedStops(
       totalDuration: secondsToMinutes(route.duration),
       geometry: [route.geometry.coordinates.map((c: number[]) => [c[1], c[0]])],
       orderedStopIds: stops.map(s => s.id),
+      optimized: false,
     };
   } catch {
     return null;
