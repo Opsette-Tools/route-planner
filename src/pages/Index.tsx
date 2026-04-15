@@ -11,7 +11,7 @@ import RouteActions from '@/components/RouteActions';
 import RouteDetails from '@/components/RouteDetails';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { geocodeAddress } from '@/services/geocoding';
+import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
 import { optimizeRoute, getRouteForOrderedStops } from '@/services/routing';
 import type { HomeBase, Stop, SavedRoute, RouteResult } from '@/types/route';
 
@@ -51,7 +51,27 @@ export default function Index() {
       setRouteResult(null);
       setRouteGeometry(null);
     } else {
-      message.error('Address not found');
+      message.error('Address not found. Try a different format (e.g., "123 Main St, City, State").');
+    }
+  }, [stops.length]);
+
+  const handleMapClick = useCallback(async (lat: number, lng: number) => {
+    if (stops.length >= 15) { message.warning('Maximum 15 stops'); return; }
+    setSearchLoading(true);
+    const address = await reverseGeocode({ lat, lng });
+    setSearchLoading(false);
+    if (address) {
+      setStops(prev => [...prev, {
+        id: crypto.randomUUID(),
+        address,
+        coords: { lat, lng },
+      }]);
+      setIsOptimized(false);
+      setRouteResult(null);
+      setRouteGeometry(null);
+      message.success('Stop added from map');
+    } else {
+      message.error('Could not determine address for this location');
     }
   }, [stops.length]);
 
@@ -185,6 +205,7 @@ export default function Index() {
             stops={stops}
             routeGeometry={routeGeometry}
             onAddressSearch={handleAddStop}
+            onMapClick={handleMapClick}
             searchLoading={searchLoading}
           />
           {controls}
@@ -207,6 +228,7 @@ export default function Index() {
               stops={stops}
               routeGeometry={routeGeometry}
               onAddressSearch={handleAddStop}
+              onMapClick={handleMapClick}
               searchLoading={searchLoading}
             />
           </Col>

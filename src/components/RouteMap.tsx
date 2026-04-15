@@ -1,6 +1,6 @@
 
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, ZoomControl, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Button } from 'antd';
 import { FullscreenOutlined, LoadingOutlined } from '@ant-design/icons';
@@ -66,15 +66,27 @@ function FitBoundsControl({ homeBase, stops }: { homeBase: HomeBase | null; stop
   );
 }
 
+function MapClickHandler({ onClick, disabled }: { onClick: (lat: number, lng: number) => void; disabled: boolean }) {
+  useMapEvents({
+    click(e) {
+      if (!disabled) {
+        onClick(e.latlng.lat, e.latlng.lng);
+      }
+    },
+  });
+  return null;
+}
+
 interface Props {
   homeBase: HomeBase | null;
   stops: Stop[];
   routeGeometry: [number, number][][] | null;
   onAddressSearch: (value: string) => void;
+  onMapClick: (lat: number, lng: number) => void;
   searchLoading: boolean;
 }
 
-export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, searchLoading }: Props) {
+export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, onMapClick, searchLoading }: Props) {
   const center: [number, number] = homeBase
     ? [homeBase.coords.lat, homeBase.coords.lng]
     : [39.8283, -98.5795]; // US center
@@ -120,6 +132,7 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
         />
         <FitBoundsControl homeBase={homeBase} stops={stops} />
         <RecenterMap homeBase={homeBase} />
+        <MapClickHandler onClick={onMapClick} disabled={searchLoading} />
 
         {homeBase && (
           <Marker position={[homeBase.coords.lat, homeBase.coords.lng]} icon={createHomeIcon()}>
