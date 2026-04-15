@@ -31,7 +31,7 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
             size="small"
             title="Open in Google Maps"
             onClick={() => window.open(
-              `https://www.google.com/maps/dir/?api=1&destination=${stop.coords.lat},${stop.coords.lng}`,
+              `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`,
               '_blank'
             )}
           />,
@@ -57,7 +57,7 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
               {stop.label || 'Add label...'}
             </Typography.Text>
             <br />
-            <Typography.Text type="secondary" style={{ fontSize: 11 }} ellipsis>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }} ellipsis={{ rows: 2 }}>
               {stop.address}
             </Typography.Text>
             {stop.timeWindow && <Tag color="blue" style={{ marginLeft: 4, fontSize: 10 }}>{stop.timeWindow}</Tag>}

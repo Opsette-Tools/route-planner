@@ -24,7 +24,7 @@ export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase 
       onSetHomeBase({ address: result.address, coords: result.coords });
       message.success('Home base set!');
     } else {
-      message.error('Address not found');
+      message.error('Address not found. Try a different format (e.g., "123 Main St, City, State").');
     }
   };
 

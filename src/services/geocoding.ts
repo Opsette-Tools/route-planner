@@ -20,14 +20,28 @@ export async function geocodeAddress(query: string): Promise<GeocodingResult | n
   await throttle();
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
       { headers: { 'User-Agent': 'RoutePlannerApp/1.0' } }
     );
     const data = await res.json();
     if (data.length === 0) return null;
+    const best = data[0];
+    let address = best.display_name;
+    if (best.address) {
+      const a = best.address;
+      const parts = [
+        a.house_number && a.road ? `${a.house_number} ${a.road}` : a.road,
+        a.city || a.town || a.village,
+        a.state,
+        a.postcode,
+      ].filter(Boolean);
+      if (parts.length >= 2) {
+        address = parts.join(', ');
+      }
+    }
     return {
-      address: data[0].display_name,
-      coords: { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) },
+      address,
+      coords: { lat: parseFloat(best.lat), lng: parseFloat(best.lon) },
     };
   } catch {
     return null;
