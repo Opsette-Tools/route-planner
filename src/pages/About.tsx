@@ -76,6 +76,11 @@ export default function About() {
             Contributions and feedback are welcome.
           </Paragraph>
 
+          <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 16 }}>
+            A business tool from Opsette Marketplace. Find more tools at{' '}
+            <a href="https://opsette.io" target="_blank" rel="noopener noreferrer">opsette.io</a>.
+          </Paragraph>
+
           <div style={{ textAlign: 'center', marginTop: 24 }}>
             <Space>
               <Tag>v1.0.0</Tag>

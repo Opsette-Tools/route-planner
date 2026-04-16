@@ -250,6 +250,12 @@ export default function Index() {
         <Space split={<span style={{ color: '#d9d9d9' }}>|</span>}>
           <Link to="/about" style={{ fontSize: 12, color: '#8c8c8c' }}>About</Link>
           <Link to="/privacy" style={{ fontSize: 12, color: '#8c8c8c' }}>Privacy Policy</Link>
+          <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+            By{' '}
+            <a href="https://opsette.io" target="_blank" rel="noopener noreferrer" style={{ color: '#8c8c8c', textDecoration: 'underline' }}>
+              Opsette
+            </a>
+          </span>
         </Space>
       </footer>
     </div>
