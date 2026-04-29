@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Typography, Alert, FloatButton, Row, Col, message, Space } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
-import AppHeader from '@/components/AppHeader';
+import { Typography, Alert, FloatButton, Row, Col, message, Space, Button } from 'antd';
+import { ThunderboltOutlined, SettingOutlined, HistoryOutlined } from '@ant-design/icons';
+import { OpsetteHeader } from '@/components/opsette-header';
 import SettingsDrawer from '@/components/SettingsDrawer';
 import HistoryDrawer from '@/components/HistoryDrawer';
 import RouteMap from '@/components/RouteMap';
@@ -196,7 +196,14 @@ export default function Index() {
 
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
-      <AppHeader onOpenSettings={() => setSettingsOpen(true)} onOpenHistory={() => setHistoryOpen(true)} />
+      <OpsetteHeader
+        rightExtra={
+          <>
+            <Button type="text" shape="circle" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)} aria-label="History" />
+            <Button type="text" shape="circle" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} aria-label="Settings" />
+          </>
+        }
+      />
 
       {isMobile ? (
         <>
