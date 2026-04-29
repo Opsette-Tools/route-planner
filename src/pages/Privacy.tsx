@@ -1,6 +1,7 @@
 import { Typography, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { OpsetteFooterLogo } from '@/components/opsette-share';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -103,6 +104,8 @@ export default function Privacy() {
             </a>.
           </Paragraph>
         </Typography>
+
+        <OpsetteFooterLogo />
       </Card>
     </div>
   );

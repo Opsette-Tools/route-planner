@@ -1,5 +1,6 @@
 import { Typography, Button, Space } from 'antd';
 import { SettingOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ShareAppButton } from '@/components/opsette-share';
 
 interface AppHeaderProps {
   onOpenSettings: () => void;
@@ -48,6 +49,7 @@ export default function AppHeader({ onOpenSettings, onOpenHistory }: AppHeaderPr
         <Typography.Title level={4} style={{ margin: 0 }}>Route Planner</Typography.Title>
       </Space>
       <Space>
+        <ShareAppButton size={32} />
         <Button type="text" shape="circle" icon={<HistoryOutlined />} onClick={onOpenHistory} />
         <Button type="text" shape="circle" icon={<SettingOutlined />} onClick={onOpenSettings} />
       </Space>

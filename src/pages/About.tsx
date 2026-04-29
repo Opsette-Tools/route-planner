@@ -1,6 +1,7 @@
 import { Typography, Card, Space, Tag } from 'antd';
 import { ArrowLeftOutlined, EnvironmentOutlined, ThunderboltOutlined, SaveOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { OpsetteFooterLogo } from '@/components/opsette-share';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -76,11 +77,6 @@ export default function About() {
             Contributions and feedback are welcome.
           </Paragraph>
 
-          <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 16 }}>
-            A business tool from Opsette Marketplace. Find more tools at{' '}
-            <a href="https://opsette.io" target="_blank" rel="noopener noreferrer">opsette.io</a>.
-          </Paragraph>
-
           <div style={{ textAlign: 'center', marginTop: 24 }}>
             <Space>
               <Tag>v1.0.0</Tag>
@@ -88,6 +84,8 @@ export default function About() {
             </Space>
           </div>
         </Typography>
+
+        <OpsetteFooterLogo />
       </Card>
     </div>
   );
