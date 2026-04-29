@@ -11,6 +11,7 @@ import RouteActions from '@/components/RouteActions';
 import RouteDetails from '@/components/RouteDetails';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ThemeToggleButton } from '@/components/ThemeToggleButton';
 import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
 import { optimizeRoute, getRouteForOrderedStops } from '@/services/routing';
 import type { HomeBase, Stop, SavedRoute, RouteResult } from '@/types/route';
@@ -195,12 +196,13 @@ export default function Index() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+    <div className="min-h-screen bg-background">
       <OpsetteHeader
         rightExtra={
           <>
             <Button type="text" shape="circle" icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)} aria-label="History" />
             <Button type="text" shape="circle" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)} aria-label="Settings" />
+            <ThemeToggleButton />
           </>
         }
       />
