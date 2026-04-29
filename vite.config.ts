@@ -18,20 +18,10 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },
+      manifest: false,
       workbox: {
+        navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/~oauth/],
-      },
-      manifest: {
-        name: "Route Planner",
-        short_name: "RoutePlanner",
-        icons: [
-          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-        ],
-        display: "standalone",
-        theme_color: "#2563EB",
-        background_color: "#F8FAFC",
-        start_url: "/route-planner/",
       },
     }),
   ].filter(Boolean),
