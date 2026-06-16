@@ -16,11 +16,18 @@ export interface Stop {
   timeWindow?: string;
 }
 
+export interface RouteStep {
+  instruction: string; // e.g. "Turn left onto Colonial Dr"
+  name: string;        // road name ('' for unnamed)
+  distance: number;    // miles
+}
+
 export interface RouteLeg {
   from: string;
   to: string;
   distance: number; // miles
   duration: number; // minutes
+  steps?: RouteStep[];
 }
 
 export interface RouteResult {

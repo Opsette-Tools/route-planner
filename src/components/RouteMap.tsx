@@ -5,6 +5,8 @@ import L from 'leaflet';
 import { Button } from 'antd';
 import { FullscreenOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { HomeBase, Stop } from '@/types/route';
+import type { GeoBias, GeocodingResult } from '@/services/geocoding';
+import AddressAutoComplete from './AddressAutoComplete';
 import 'leaflet/dist/leaflet.css';
 
 // Fix default marker icon
@@ -81,12 +83,17 @@ interface Props {
   homeBase: HomeBase | null;
   stops: Stop[];
   routeGeometry: [number, number][][] | null;
+  /** Free-text submit (Enter without picking a suggestion) — runs a full search. */
   onAddressSearch: (value: string) => void;
+  /** A suggestion was picked — coords already resolved, no extra geocode needed. */
+  onAddStopResult: (result: GeocodingResult) => void;
   onMapClick: (lat: number, lng: number) => void;
   searchLoading: boolean;
+  /** Proximity bias for the search box (home base coords when set). */
+  bias?: GeoBias;
 }
 
-export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, onMapClick, searchLoading }: Props) {
+export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, onAddStopResult, onMapClick, searchLoading, bias }: Props) {
   const center: [number, number] = homeBase
     ? [homeBase.coords.lat, homeBase.coords.lng]
     : [39.8283, -98.5795]; // US center
@@ -98,24 +105,18 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
         position: 'absolute', top: 12, left: 12, right: 52, zIndex: 1000,
         background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
         borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-        display: 'flex', alignItems: 'center',
+        display: 'flex', alignItems: 'center', paddingRight: searchLoading ? 0 : 0,
       }}>
-        <input
-          type="text"
-          placeholder="Search address to add stop..."
-          disabled={searchLoading}
-          style={{
-            flex: 1, padding: '8px 12px', border: 'none', outline: 'none',
-            background: 'transparent', fontSize: 14, borderRadius: 8,
-            opacity: searchLoading ? 0.6 : 1,
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              onAddressSearch((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).value = '';
-            }
-          }}
-        />
+        <div style={{ flex: 1 }}>
+          <AddressAutoComplete
+            variant="overlay"
+            placeholder="Search address to add stop..."
+            disabled={searchLoading}
+            bias={bias}
+            onSelect={onAddStopResult}
+            onSubmitText={onAddressSearch}
+          />
+        </div>
         {searchLoading && <LoadingOutlined style={{ marginRight: 10, color: '#2563EB' }} />}
       </div>
 

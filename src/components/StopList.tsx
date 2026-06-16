@@ -13,10 +13,11 @@ interface Props {
   onUpdateTimeWindow: (id: string, timeWindow: string) => void;
 }
 
-function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
+function SortableItem({ stop, index, onDelete, onUpdateLabel, onUpdateTimeWindow }: {
   stop: Stop; index: number;
   onDelete: (id: string) => void;
   onUpdateLabel: (id: string, label: string) => void;
+  onUpdateTimeWindow: (id: string, timeWindow: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: stop.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -60,7 +61,19 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
             <Typography.Text type="secondary" style={{ fontSize: 11 }} ellipsis={{ rows: 2 }}>
               {stop.address}
             </Typography.Text>
-            {stop.timeWindow && <Tag color="blue" style={{ marginLeft: 4, fontSize: 10 }}>{stop.timeWindow}</Tag>}
+            <br />
+            <Typography.Text
+              type="secondary"
+              style={{ fontSize: 11 }}
+              editable={{
+                onChange: (val) => onUpdateTimeWindow(stop.id, val.trim()),
+                tooltip: 'Set a time window (e.g. "9–10am")',
+              }}
+            >
+              {stop.timeWindow
+                ? <Tag color="blue" style={{ fontSize: 10 }}>{stop.timeWindow}</Tag>
+                : <span style={{ fontSize: 11, color: '#bfbfbf' }}>+ time window</span>}
+            </Typography.Text>
           </div>
         </div>
       </List.Item>
@@ -68,7 +81,7 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel }: {
   );
 }
 
-export default function StopList({ stops, onReorder, onDelete, onUpdateLabel }: Props) {
+export default function StopList({ stops, onReorder, onDelete, onUpdateLabel, onUpdateTimeWindow }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -97,6 +110,7 @@ export default function StopList({ stops, onReorder, onDelete, onUpdateLabel }: 
                 index={index}
                 onDelete={onDelete}
                 onUpdateLabel={onUpdateLabel}
+                onUpdateTimeWindow={onUpdateTimeWindow}
               />
             )}
           />

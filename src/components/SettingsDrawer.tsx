@@ -1,7 +1,8 @@
-import { Drawer, Input, Button, Space, Typography, message } from 'antd';
+import { Drawer, Button, Space, Typography, message } from 'antd';
 import { AimOutlined } from '@ant-design/icons';
 import type { HomeBase } from '@/types/route';
-import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
+import { geocodeAddress, reverseGeocode, type GeocodingResult } from '@/services/geocoding';
+import AddressAutoComplete from './AddressAutoComplete';
 import { useState } from 'react';
 
 interface Props {
@@ -12,17 +13,21 @@ interface Props {
 }
 
 export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase }: Props) {
-  const [loading, setLoading] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+
+  // Bias home-base search toward the existing home base if one is set, else US-only.
+  const bias = homeBase ? { center: homeBase.coords } : undefined;
+
+  const applyResult = (result: GeocodingResult) => {
+    onSetHomeBase({ address: result.address, coords: result.coords });
+    message.success('Home base set!');
+  };
 
   const handleSearch = async (value: string) => {
     if (!value.trim()) return;
-    setLoading(true);
-    const result = await geocodeAddress(value);
-    setLoading(false);
+    const result = await geocodeAddress(value, bias);
     if (result) {
-      onSetHomeBase({ address: result.address, coords: result.coords });
-      message.success('Home base set!');
+      applyResult(result);
     } else {
       message.error('Address not found. Try a different format (e.g., "123 Main St, City, State").');
     }
@@ -53,11 +58,11 @@ export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase 
     <Drawer title="Settings" open={open} onClose={onClose} placement="right" width={360}>
       <Space direction="vertical" className="w-full" size="middle">
         <Typography.Text strong>Home Base (Start & End Point)</Typography.Text>
-        <Input.Search
+        <AddressAutoComplete
           placeholder="Search address..."
-          enterButton="Set"
-          loading={loading}
-          onSearch={handleSearch}
+          bias={bias}
+          onSelect={applyResult}
+          onSubmitText={handleSearch}
         />
         <Button icon={<AimOutlined />} loading={geoLoading} onClick={handleCurrentLocation} block>
           Use Current Location

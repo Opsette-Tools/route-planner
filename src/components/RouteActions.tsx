@@ -1,9 +1,11 @@
 import { Button, Space, Popconfirm, Badge, Modal, Input, message } from 'antd';
 import {
-  ThunderboltOutlined, SaveOutlined, ShareAltOutlined, ClearOutlined, ExperimentOutlined, DownloadOutlined,
+  ThunderboltOutlined, SaveOutlined, ShareAltOutlined, ClearOutlined, ExperimentOutlined,
+  DownloadOutlined, CompassOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import type { Stop, RouteResult, HomeBase } from '@/types/route';
+import { buildGoogleMapsRoute } from '@/lib/mapsLink';
 
 interface Props {
   stops: Stop[];
@@ -54,6 +56,15 @@ export default function RouteActions({
     setRouteName('');
   };
 
+  const handleOpenInMaps = () => {
+    if (!homeBase || stops.length === 0) return;
+    const { url, truncated } = buildGoogleMapsRoute(homeBase, stops);
+    if (truncated) {
+      message.warning('Google Maps supports ~9 stops per link; opening the first 9 in order.');
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const showOptimizeBadge = stops.length >= 3 && !isOptimized;
 
   return (
@@ -75,6 +86,13 @@ export default function RouteActions({
         </Button>
         <Button icon={<ShareAltOutlined />} disabled={!routeResult} onClick={handleShare}>
           Share
+        </Button>
+        <Button
+          icon={<CompassOutlined />}
+          disabled={!homeBase || stops.length === 0}
+          onClick={handleOpenInMaps}
+        >
+          Open in Maps
         </Button>
         <Button icon={<DownloadOutlined />} disabled={!routeResult} onClick={handleExport}>
           Export CSV

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Typography, Alert, FloatButton, Row, Col, message, Space, Button } from 'antd';
 import { ThunderboltOutlined, SettingOutlined, HistoryOutlined } from '@ant-design/icons';
@@ -12,7 +12,7 @@ import RouteDetails from '@/components/RouteDetails';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ThemeToggleButton } from '@/components/ThemeToggleButton';
-import { geocodeAddress, reverseGeocode } from '@/services/geocoding';
+import { geocodeAddress, reverseGeocode, type GeoBias, type GeocodingResult } from '@/services/geocoding';
 import { optimizeRoute, getRouteForOrderedStops } from '@/services/routing';
 import type { HomeBase, Stop, SavedRoute, RouteResult } from '@/types/route';
 
@@ -36,25 +36,51 @@ export default function Index() {
   const [searchLoading, setSearchLoading] = useState(false);
   const isMobile = useIsMobile();
 
+  // Bias every address search toward the home base so common street names resolve
+  // locally (the "Orlando search kept returning Lincoln, NE" fix). Falls back to
+  // US-only when no home base is set yet.
+  const searchBias: GeoBias | undefined = useMemo(
+    () => (homeBase ? { center: homeBase.coords } : undefined),
+    [homeBase]
+  );
+
+  // Single seam for adding a stop from an already-resolved coordinate + address.
+  // Used by: picking an autocomplete suggestion, map clicks, and injected parent
+  // records — so none of those paths re-run a guess-y geocode.
+  const addStopRecord = useCallback((record: { address: string; coords: { lat: number; lng: number }; label?: string }) => {
+    let added = false;
+    setStops(prev => {
+      if (prev.length >= 15) return prev;
+      added = true;
+      return [...prev, {
+        id: crypto.randomUUID(),
+        address: record.address,
+        coords: record.coords,
+        label: record.label,
+      }];
+    });
+    if (!added) { message.warning('Maximum 15 stops'); return; }
+    setIsOptimized(false);
+    setRouteResult(null);
+    setRouteGeometry(null);
+  }, []);
+
+  const handleAddStopResult = useCallback((result: GeocodingResult) => {
+    addStopRecord(result);
+  }, [addStopRecord]);
+
   const handleAddStop = useCallback(async (query: string) => {
     if (!query.trim()) return;
     if (stops.length >= 15) { message.warning('Maximum 15 stops'); return; }
     setSearchLoading(true);
-    const result = await geocodeAddress(query);
+    const result = await geocodeAddress(query, searchBias);
     setSearchLoading(false);
     if (result) {
-      setStops(prev => [...prev, {
-        id: crypto.randomUUID(),
-        address: result.address,
-        coords: result.coords,
-      }]);
-      setIsOptimized(false);
-      setRouteResult(null);
-      setRouteGeometry(null);
+      addStopRecord(result);
     } else {
       message.error('Address not found. Try a different format (e.g., "123 Main St, City, State").');
     }
-  }, [stops.length]);
+  }, [stops.length, searchBias, addStopRecord]);
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
     if (stops.length >= 15) { message.warning('Maximum 15 stops'); return; }
@@ -62,19 +88,12 @@ export default function Index() {
     const address = await reverseGeocode({ lat, lng });
     setSearchLoading(false);
     if (address) {
-      setStops(prev => [...prev, {
-        id: crypto.randomUUID(),
-        address,
-        coords: { lat, lng },
-      }]);
-      setIsOptimized(false);
-      setRouteResult(null);
-      setRouteGeometry(null);
+      addStopRecord({ address, coords: { lat, lng } });
       message.success('Stop added from map');
     } else {
       message.error('Could not determine address for this location');
     }
-  }, [stops.length]);
+  }, [stops.length, addStopRecord]);
 
   const handleOptimize = useCallback(async () => {
     if (!homeBase || stops.length < 2) return;
@@ -155,6 +174,79 @@ export default function Index() {
     }
   };
 
+  // ── Auto-connect: keep the map line in sync with the stop list ────────────
+  // Adding/removing/reordering a stop used to leave the old line on the map until
+  // you pressed Optimize again — the "it doesn't connect" confusion. Now, whenever
+  // the stops change and we're not already showing an optimized result, we redraw
+  // a plain connected line (home → stops in current order → home) via OSRM's
+  // /route endpoint. Optimize then becomes "reorder for efficiency," not "make the
+  // line appear." A request-sequence guard prevents a slow response from drawing a
+  // stale line over a newer edit.
+  const drawSeq = useRef(0);
+  useEffect(() => {
+    if (!homeBase || stops.length < 1 || isOptimized) return;
+    const mySeq = ++drawSeq.current;
+    (async () => {
+      const result = await getRouteForOrderedStops(homeBase.coords, stops);
+      if (mySeq !== drawSeq.current) return; // superseded by a newer edit
+      if (result) {
+        setRouteGeometry(result.geometry);
+        setRouteResult(result);
+      }
+    })();
+    // depend on the identity of the stop sequence + home base, not object refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeBase?.coords.lat, homeBase?.coords.lng, stops.map(s => s.id).join(','), isOptimized]);
+
+  // ── Parent-app bridge (future appointments/clients integration) ───────────
+  // The tool runs in an iframe with no bridge today. This listener is the seam:
+  // a parent window can postMessage records and we'll plot them without the
+  // free-text geocode guesswork. Records with coords are plotted directly;
+  // records with only an address are geocoded (US-biased) before plotting.
+  //
+  // Message shape (parent → iframe):
+  //   { source: 'opsette', type: 'route-planner/add-stops',
+  //     stops: [{ address, lat?, lng?, label? }, ...] }
+  //   { source: 'opsette', type: 'route-planner/set-home-base',
+  //     homeBase: { address, lat?, lng? } }
+  //
+  // TODO(parent-app): lock the accepted origin to the real parent domain once
+  // the bridge is built, instead of accepting any origin.
+  useEffect(() => {
+    async function resolve(rec: { address?: string; lat?: number; lng?: number; label?: string }) {
+      if (typeof rec.lat === 'number' && typeof rec.lng === 'number') {
+        return { address: rec.address || `${rec.lat.toFixed(5)}, ${rec.lng.toFixed(5)}`, coords: { lat: rec.lat, lng: rec.lng }, label: rec.label };
+      }
+      if (rec.address) {
+        const g = await geocodeAddress(rec.address, { countryCode: 'us' });
+        if (g) return { address: g.address, coords: g.coords, label: rec.label };
+      }
+      return null;
+    }
+
+    async function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.source !== 'opsette' || typeof data.type !== 'string') return;
+
+      if (data.type === 'route-planner/add-stops' && Array.isArray(data.stops)) {
+        for (const rec of data.stops) {
+          const resolved = await resolve(rec);
+          if (resolved) addStopRecord(resolved);
+        }
+        message.success('Stops added from app');
+      } else if (data.type === 'route-planner/set-home-base' && data.homeBase) {
+        const resolved = await resolve(data.homeBase);
+        if (resolved) {
+          setHomeBase({ address: resolved.address, coords: resolved.coords });
+          message.success('Home base set from app');
+        }
+      }
+    }
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [addStopRecord, setHomeBase]);
+
   const controls = (
     <div className="p-3">
       {!homeBase && (
@@ -214,8 +306,10 @@ export default function Index() {
             stops={stops}
             routeGeometry={routeGeometry}
             onAddressSearch={handleAddStop}
+            onAddStopResult={handleAddStopResult}
             onMapClick={handleMapClick}
             searchLoading={searchLoading}
+            bias={searchBias}
           />
           {controls}
           {stops.length >= 2 && homeBase && (
@@ -237,8 +331,10 @@ export default function Index() {
               stops={stops}
               routeGeometry={routeGeometry}
               onAddressSearch={handleAddStop}
+              onAddStopResult={handleAddStopResult}
               onMapClick={handleMapClick}
               searchLoading={searchLoading}
+              bias={searchBias}
             />
           </Col>
         </Row>

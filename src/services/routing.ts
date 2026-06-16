@@ -1,4 +1,4 @@
-import type { LatLng, RouteLeg, RouteResult, Stop } from '@/types/route';
+import type { LatLng, RouteLeg, RouteResult, RouteStep, Stop } from '@/types/route';
 
 const OSRM_BASE = 'https://router.project-osrm.org';
 
@@ -14,6 +14,42 @@ function secondsToMinutes(s: number): number {
   return Math.round(s / 60);
 }
 
+/** Turn OSRM's maneuver object into a human-readable instruction. */
+function describeManeuver(maneuver: { type?: string; modifier?: string }, road: string): string {
+  const type = maneuver.type || '';
+  const mod = maneuver.modifier || '';
+  const onRoad = road ? ` onto ${road}` : '';
+  switch (type) {
+    case 'depart': return road ? `Head out on ${road}` : 'Head out';
+    case 'arrive': return 'Arrive at destination';
+    case 'turn': return `Turn ${mod}${onRoad}`;
+    case 'merge': return `Merge ${mod}${onRoad}`.replace(' onto', ' onto').trim();
+    case 'on ramp': return `Take the ramp${mod ? ` ${mod}` : ''}${onRoad}`;
+    case 'off ramp': return `Take the exit${mod ? ` ${mod}` : ''}${onRoad}`;
+    case 'fork': return `Keep ${mod}${onRoad}`;
+    case 'roundabout':
+    case 'rotary': return `Enter the roundabout${onRoad}`;
+    case 'continue': return mod ? `Continue ${mod}${onRoad}` : `Continue${onRoad}`;
+    case 'new name': return road ? `Continue onto ${road}` : 'Continue';
+    case 'end of road': return `Turn ${mod}${onRoad}`;
+    default: return mod ? `${type} ${mod}${onRoad}`.trim() : (road ? `Continue onto ${road}` : 'Continue');
+  }
+}
+
+/** Parse OSRM leg.steps[] (only present when steps=true) into RouteStep[]. */
+function parseSteps(legSteps: unknown): RouteStep[] | undefined {
+  if (!Array.isArray(legSteps)) return undefined;
+  const steps: RouteStep[] = [];
+  for (const s of legSteps) {
+    const road = typeof s?.name === 'string' ? s.name : '';
+    const instruction = describeManeuver(s?.maneuver ?? {}, road);
+    // Skip the trailing zero-distance "arrive" noise between waypoints.
+    if (s?.maneuver?.type === 'arrive' && (s?.distance ?? 0) === 0 && steps.length) continue;
+    steps.push({ instruction, name: road, distance: metersToMiles(s?.distance ?? 0) });
+  }
+  return steps.length ? steps : undefined;
+}
+
 export async function optimizeRoute(
   homeBase: LatLng,
   stops: Stop[]
@@ -23,7 +59,7 @@ export async function optimizeRoute(
 
   try {
     const res = await fetch(
-      `${OSRM_BASE}/trip/v1/driving/${coords}?source=first&destination=last&roundtrip=true&geometries=geojson&overview=full&steps=false`
+      `${OSRM_BASE}/trip/v1/driving/${coords}?source=first&destination=last&roundtrip=true&geometries=geojson&overview=full&steps=true`
     );
     const data = await res.json();
 
@@ -60,6 +96,7 @@ export async function optimizeRoute(
         to: allNames[i + 1],
         distance: metersToMiles(trip.legs[i].distance),
         duration: secondsToMinutes(trip.legs[i].duration),
+        steps: parseSteps(trip.legs[i].steps),
       });
     }
 
@@ -85,7 +122,7 @@ export async function getRouteForOrderedStops(
 
   try {
     const res = await fetch(
-      `${OSRM_BASE}/route/v1/driving/${coordStr}?geometries=geojson&overview=full&steps=false`
+      `${OSRM_BASE}/route/v1/driving/${coordStr}?geometries=geojson&overview=full&steps=true`
     );
     const data = await res.json();
 
@@ -98,6 +135,7 @@ export async function getRouteForOrderedStops(
       to: allNames[i + 1],
       distance: metersToMiles(leg.distance),
       duration: secondsToMinutes(leg.duration),
+      steps: parseSteps(leg.steps),
     }));
 
     return {
