@@ -1,5 +1,5 @@
 import { List, Typography, Tag, Button, Alert } from 'antd';
-import { DeleteOutlined, HolderOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { DeleteOutlined, HolderOutlined, EnvironmentOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -9,19 +9,20 @@ interface Props {
   stops: Stop[];
   onReorder: (stops: Stop[]) => void;
   onDelete: (id: string) => void;
-  onUpdateLabel: (id: string, label: string) => void;
-  onUpdateTimeWindow: (id: string, timeWindow: string) => void;
+  onEdit: (stop: Stop) => void;
 }
 
-function SortableItem({ stop, index, onDelete, onUpdateLabel, onUpdateTimeWindow }: {
+function SortableItem({ stop, index, onDelete, onEdit }: {
   stop: Stop; index: number;
   onDelete: (id: string) => void;
-  onUpdateLabel: (id: string, label: string) => void;
-  onUpdateTimeWindow: (id: string, timeWindow: string) => void;
+  onEdit: (stop: Stop) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: stop.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
+  // Label is the optional headline; the address is the source of truth. No inline
+  // pencils — a single Edit button (in the action area) opens the modal that handles
+  // label, location, and time window together.
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <List.Item
@@ -36,7 +37,8 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel, onUpdateTimeWindow
               '_blank'
             )}
           />,
-          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(stop.id)} size="small" />
+          <Button type="text" icon={<EditOutlined />} size="small" title="Edit stop" onClick={() => onEdit(stop)} />,
+          <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(stop.id)} size="small" title="Delete stop" />,
         ]}
       >
         <div className="flex items-center gap-2 w-full">
@@ -51,29 +53,30 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel, onUpdateTimeWindow
             {index + 1}
           </div>
           <div className="flex-1 min-w-0">
-            <Typography.Text
-              editable={{ onChange: (val) => onUpdateLabel(stop.id, val) }}
-              style={{ fontSize: 13, fontWeight: 500 }}
-            >
-              {stop.label || 'Add label...'}
-            </Typography.Text>
-            <br />
-            <Typography.Text type="secondary" style={{ fontSize: 11 }} ellipsis={{ rows: 2 }}>
-              {stop.address}
-            </Typography.Text>
-            <br />
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 11 }}
-              editable={{
-                onChange: (val) => onUpdateTimeWindow(stop.id, val.trim()),
-                tooltip: 'Set a time window (e.g. "9–10am")',
-              }}
-            >
-              {stop.timeWindow
-                ? <Tag color="blue" style={{ fontSize: 10 }}>{stop.timeWindow}</Tag>
-                : <span style={{ fontSize: 11, color: '#bfbfbf' }}>+ time window</span>}
-            </Typography.Text>
+            {stop.label ? (
+              <>
+                <Typography.Text style={{ fontSize: 13, fontWeight: 600 }} ellipsis>
+                  {stop.label}
+                </Typography.Text>
+                <br />
+                <Typography.Text type="secondary" style={{ fontSize: 11 }} ellipsis={{ rows: 2 }}>
+                  {stop.address}
+                </Typography.Text>
+              </>
+            ) : (
+              // No label → the address becomes the headline so the row never reads blank.
+              <Typography.Text style={{ fontSize: 13, fontWeight: 500 }} ellipsis={{ rows: 2 }}>
+                {stop.address}
+              </Typography.Text>
+            )}
+            {stop.timeWindow && (
+              <>
+                <br />
+                <Tag color="blue" icon={<ClockCircleOutlined />} style={{ fontSize: 10, marginTop: 2 }}>
+                  {stop.timeWindow}
+                </Tag>
+              </>
+            )}
           </div>
         </div>
       </List.Item>
@@ -81,7 +84,7 @@ function SortableItem({ stop, index, onDelete, onUpdateLabel, onUpdateTimeWindow
   );
 }
 
-export default function StopList({ stops, onReorder, onDelete, onUpdateLabel, onUpdateTimeWindow }: Props) {
+export default function StopList({ stops, onReorder, onDelete, onEdit }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -109,8 +112,7 @@ export default function StopList({ stops, onReorder, onDelete, onUpdateLabel, on
                 stop={stop}
                 index={index}
                 onDelete={onDelete}
-                onUpdateLabel={onUpdateLabel}
-                onUpdateTimeWindow={onUpdateTimeWindow}
+                onEdit={onEdit}
               />
             )}
           />

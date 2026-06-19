@@ -6,6 +6,7 @@ import { Button } from 'antd';
 import { FullscreenOutlined, LoadingOutlined } from '@ant-design/icons';
 import type { HomeBase, Stop } from '@/types/route';
 import type { GeoBias, GeocodingResult } from '@/services/geocoding';
+import { useTheme } from '@/hooks/use-theme';
 import AddressAutoComplete from './AddressAutoComplete';
 import 'leaflet/dist/leaflet.css';
 
@@ -63,7 +64,8 @@ function FitBoundsControl({ homeBase, stops }: { homeBase: HomeBase | null; stop
 
   return (
     <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
-      <Button size="small" icon={<FullscreenOutlined />} onClick={fitBounds} style={{ background: '#fff' }} />
+      {/* Default (themed) Button so it doesn't stay white in dark mode. */}
+      <Button size="small" icon={<FullscreenOutlined />} onClick={fitBounds} />
     </div>
   );
 }
@@ -88,28 +90,44 @@ interface Props {
   /** A suggestion was picked — coords already resolved, no extra geocode needed. */
   onAddStopResult: (result: GeocodingResult) => void;
   onMapClick: (lat: number, lng: number) => void;
+  /** A stop marker was dragged — new coords; the parent reverse-geocodes + updates. */
+  onStopDragEnd: (id: string, lat: number, lng: number) => void;
   searchLoading: boolean;
   /** Proximity bias for the search box (home base coords when set). */
   bias?: GeoBias;
 }
 
-export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, onAddStopResult, onMapClick, searchLoading, bias }: Props) {
+export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSearch, onAddStopResult, onMapClick, onStopDragEnd, searchLoading, bias }: Props) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const center: [number, number] = homeBase
     ? [homeBase.coords.lat, homeBase.coords.lng]
     : [39.8283, -98.5795]; // US center
 
   return (
-    <div className="relative" style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      {/* Search overlay */}
+    <div
+      className={isDark ? 'relative rp-map-dark' : 'relative'}
+      style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+    >
+      {/* Dark mode lifts CARTO dark_all (near-black) toward a softer charcoal so
+          streets read, without leaving the keyless CARTO stack. Brightness on the
+          tile pane only — markers/route line keep full contrast. */}
+      <style>{`
+        .rp-map-dark .leaflet-tile-pane { filter: brightness(1.55) contrast(0.92); }
+      `}</style>
+      {/* Search overlay — the frosted panel follows the theme (dark frost in dark
+          mode) so the input text inside it stays legible against the map. */}
       <div style={{
         position: 'absolute', top: 12, left: 12, right: 52, zIndex: 1000,
-        background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
+        background: isDark ? 'rgba(30,30,30,0.92)' : 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(8px)',
         borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-        display: 'flex', alignItems: 'center', paddingRight: searchLoading ? 0 : 0,
+        display: 'flex', alignItems: 'center',
       }}>
         <div style={{ flex: 1 }}>
           <AddressAutoComplete
             variant="overlay"
+            overlayDark={isDark}
             placeholder="Search address to add stop..."
             disabled={searchLoading}
             bias={bias}
@@ -128,8 +146,16 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
       >
         <ZoomControl position="bottomright" />
         <TileLayer
+          // CARTO ships matched light/dark basemaps — swap with the app theme so the
+          // map isn't a glaring white panel inside the dark UI. `key` forces Leaflet
+          // to remount the layer on theme change (TileLayer caches its url otherwise).
+          key={isDark ? 'dark' : 'light'}
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url={
+            isDark
+              ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+              : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+          }
         />
         <FitBoundsControl homeBase={homeBase} stops={stops} />
         <RecenterMap homeBase={homeBase} />
@@ -142,17 +168,30 @@ export default function RouteMap({ homeBase, stops, routeGeometry, onAddressSear
         )}
 
         {stops.map((stop, i) => (
-          <Marker key={stop.id} position={[stop.coords.lat, stop.coords.lng]} icon={createStopIcon(i + 1)}>
+          <Marker
+            key={stop.id}
+            position={[stop.coords.lat, stop.coords.lng]}
+            icon={createStopIcon(i + 1)}
+            draggable
+            eventHandlers={{
+              dragend: (e) => {
+                const { lat, lng } = (e.target as L.Marker).getLatLng();
+                onStopDragEnd(stop.id, lat, lng);
+              },
+            }}
+          >
             <Popup>
               <b>Stop {i + 1}</b><br />
               {stop.label && <>{stop.label}<br /></>}
               {stop.address}
+              <br /><span style={{ color: '#8c8c8c', fontSize: 11 }}>Drag the pin to move this stop</span>
             </Popup>
           </Marker>
         ))}
 
         {routeGeometry?.map((line, i) => (
-          <Polyline key={i} positions={line} color="#2563EB" weight={4} opacity={0.8} />
+          // Brighter blue on dark tiles so the route reads against the dark basemap.
+          <Polyline key={i} positions={line} color={isDark ? '#60A5FA' : '#2563EB'} weight={4} opacity={0.9} />
         ))}
       </MapContainer>
     </div>

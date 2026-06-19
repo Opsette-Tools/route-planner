@@ -1,11 +1,12 @@
-import { Button, Space, Popconfirm, Badge, Modal, Input, message } from 'antd';
+import { Button, Space, Popconfirm, Badge, Modal, Input, Dropdown, message } from 'antd';
 import {
   ThunderboltOutlined, SaveOutlined, ShareAltOutlined, ClearOutlined, ExperimentOutlined,
-  DownloadOutlined, CompassOutlined,
+  DownloadOutlined, CompassOutlined, PrinterOutlined, CopyOutlined, DownOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import type { Stop, RouteResult, HomeBase } from '@/types/route';
 import { buildGoogleMapsRoute } from '@/lib/mapsLink';
+import { printRouteSheet } from '@/lib/printRoute';
 
 interface Props {
   stops: Stop[];
@@ -13,6 +14,9 @@ interface Props {
   homeBase: HomeBase | null;
   optimizing: boolean;
   isOptimized: boolean;
+  /** Departure time (min-from-midnight) for the printed sheet's arrival clocks. */
+  departureMins: number;
+  dwellMins: number;
   onOptimize: () => void;
   onClear: () => void;
   onSave: (name: string) => void;
@@ -20,7 +24,7 @@ interface Props {
 }
 
 export default function RouteActions({
-  stops, routeResult, homeBase, optimizing, isOptimized,
+  stops, routeResult, homeBase, optimizing, isOptimized, departureMins, dwellMins,
   onOptimize, onClear, onSave, onTryDemo,
 }: Props) {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -65,7 +69,21 @@ export default function RouteActions({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const handlePrint = () => {
+    if (!homeBase || !routeResult) return;
+    printRouteSheet({ homeBase, stops, routeResult, departureMins, dwellMins });
+  };
+
   const showOptimizeBadge = stops.length >= 3 && !isOptimized;
+
+  // Share groups the "get this route out of the app" actions — copy as text, print
+  // the driver sheet, export CSV — so the main row stays just the verbs a rep does
+  // every run (optimize, open in nav, save).
+  const shareItems = [
+    { key: 'copy', icon: <CopyOutlined />, label: 'Copy as text', onClick: handleShare },
+    { key: 'print', icon: <PrinterOutlined />, label: 'Print driver sheet', onClick: handlePrint },
+    { key: 'csv', icon: <DownloadOutlined />, label: 'Export CSV', onClick: handleExport },
+  ];
 
   return (
     <>
@@ -81,12 +99,6 @@ export default function RouteActions({
             Optimize Route
           </Button>
         </Badge>
-        <Button icon={<SaveOutlined />} disabled={!routeResult} onClick={() => setSaveModalOpen(true)}>
-          Save
-        </Button>
-        <Button icon={<ShareAltOutlined />} disabled={!routeResult} onClick={handleShare}>
-          Share
-        </Button>
         <Button
           icon={<CompassOutlined />}
           disabled={!homeBase || stops.length === 0}
@@ -94,11 +106,20 @@ export default function RouteActions({
         >
           Open in Maps
         </Button>
-        <Button icon={<DownloadOutlined />} disabled={!routeResult} onClick={handleExport}>
-          Export CSV
+        <Button icon={<SaveOutlined />} disabled={!routeResult} onClick={() => setSaveModalOpen(true)}>
+          Save
         </Button>
+        <Dropdown
+          menu={{ items: shareItems }}
+          disabled={!routeResult}
+          trigger={['click']}
+        >
+          <Button icon={<ShareAltOutlined />} disabled={!routeResult}>
+            Share <DownOutlined style={{ fontSize: 10 }} />
+          </Button>
+        </Dropdown>
         <Popconfirm title="Clear all stops?" onConfirm={onClear} disabled={stops.length === 0}>
-          <Button icon={<ClearOutlined />} disabled={stops.length === 0}>Clear</Button>
+          <Button type="text" icon={<ClearOutlined />} disabled={stops.length === 0} aria-label="Clear all stops" title="Clear all stops" />
         </Popconfirm>
         {stops.length === 0 && (
           <Button type="dashed" icon={<ExperimentOutlined />} onClick={onTryDemo}>

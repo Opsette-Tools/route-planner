@@ -1,5 +1,5 @@
-import { Drawer, Button, Space, Typography, message } from 'antd';
-import { AimOutlined } from '@ant-design/icons';
+import { Drawer, Button, Space, Typography, Switch, Divider, theme, message } from 'antd';
+import { AimOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { HomeBase } from '@/types/route';
 import { geocodeAddress, reverseGeocode, type GeocodingResult } from '@/services/geocoding';
 import AddressAutoComplete from './AddressAutoComplete';
@@ -10,10 +10,13 @@ interface Props {
   onClose: () => void;
   homeBase: HomeBase | null;
   onSetHomeBase: (hb: HomeBase) => void;
+  autoReoptimize: boolean;
+  onSetAutoReoptimize: (value: boolean) => void;
 }
 
-export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase }: Props) {
+export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase, autoReoptimize, onSetAutoReoptimize }: Props) {
   const [geoLoading, setGeoLoading] = useState(false);
+  const { token } = theme.useToken();
 
   // Bias home-base search toward the existing home base if one is set, else US-only.
   const bias = homeBase ? { center: homeBase.coords } : undefined;
@@ -68,14 +71,41 @@ export default function SettingsDrawer({ open, onClose, homeBase, onSetHomeBase 
           Use Current Location
         </Button>
         {homeBase && (
-          <div className="mt-2 p-3 rounded-lg" style={{ background: '#f6ffed', border: '1px solid #b7eb8f' }}>
-            <Typography.Text type="success" strong>Current Home Base:</Typography.Text>
+          // Success-tinted callout via theme tokens (not fixed hex) so the panel and
+          // its text stay legible in both light and dark mode.
+          <div
+            className="mt-2 p-3 rounded-lg"
+            style={{
+              background: token.colorSuccessBg,
+              border: `1px solid ${token.colorSuccessBorder}`,
+            }}
+          >
+            <Typography.Text strong style={{ color: token.colorSuccessText }}>
+              Current Home Base:
+            </Typography.Text>
             <br />
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            <Typography.Text style={{ fontSize: 12, color: token.colorText }}>
               {homeBase.address}
             </Typography.Text>
           </div>
         )}
+
+        <Divider style={{ margin: '8px 0' }} />
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <Typography.Text strong>
+              <ThunderboltOutlined style={{ color: '#2563EB', marginRight: 6 }} />
+              Auto-reoptimize
+            </Typography.Text>
+            <br />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Re-run optimization automatically every time you add, remove, or move a
+              stop. Off by default — each edit costs an extra routing request.
+            </Typography.Text>
+          </div>
+          <Switch checked={autoReoptimize} onChange={onSetAutoReoptimize} />
+        </div>
       </Space>
     </Drawer>
   );

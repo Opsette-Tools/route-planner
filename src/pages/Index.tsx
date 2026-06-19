@@ -9,6 +9,7 @@ import RouteMap from '@/components/RouteMap';
 import StopList from '@/components/StopList';
 import RouteActions from '@/components/RouteActions';
 import RouteDetails from '@/components/RouteDetails';
+import EditStopModal, { type StopEdits } from '@/components/EditStopModal';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ThemeToggleButton } from '@/components/ThemeToggleButton';
@@ -27,10 +28,17 @@ export default function Index() {
   const [homeBase, setHomeBase] = useLocalStorage<HomeBase | null>('rp_homeBase', null);
   const [stops, setStops] = useState<Stop[]>([]);
   const [savedRoutes, setSavedRoutes] = useLocalStorage<SavedRoute[]>('rp_savedRoutes', []);
+  const [autoReoptimize, setAutoReoptimize] = useLocalStorage<boolean>('rp_autoReoptimize', false);
+  // Departure clock shared by RouteDetails (per-leg arrival display) and the
+  // printed route sheet (RouteActions). Single source of truth so the sheet
+  // matches exactly what's on screen. Minutes-from-midnight; default 8:00 AM.
+  const [departureMins, setDepartureMins] = useState(8 * 60);
+  const [dwellMins, setDwellMins] = useState(0);
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [routeGeometry, setRouteGeometry] = useState<[number, number][][] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [editingStop, setEditingStop] = useState<Stop | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [isOptimized, setIsOptimized] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -94,6 +102,40 @@ export default function Index() {
       message.error('Could not determine address for this location');
     }
   }, [stops.length, addStopRecord]);
+
+  // Dragging a stop pin moves it. Update coords immediately so the pin stays put
+  // and the connected line redraws (the auto-connect effect keys off stop ids, so
+  // we nudge it via a fresh address after the reverse-geocode resolves). Editing a
+  // stop invalidates an optimized result — fall back to "needs re-optimize".
+  const handleStopDragEnd = useCallback(async (id: string, lat: number, lng: number) => {
+    const coords = { lat, lng };
+    // Optimistic: snap coords + a placeholder address, drop optimized state.
+    setStops(prev => prev.map(s => s.id === id ? { ...s, coords, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` } : s));
+    setIsOptimized(false);
+    setRouteResult(null);
+    setRouteGeometry(null);
+    // Resolve a real address in the background; ignore if the stop was since removed.
+    const address = await reverseGeocode(coords);
+    if (address) {
+      setStops(prev => prev.map(s => s.id === id ? { ...s, address } : s));
+    }
+  }, []);
+
+  // Save edits from the Edit Stop modal (label, time window, and/or a re-searched
+  // location). If the coordinates moved, the optimized order is no longer valid, so
+  // we drop the result and let the auto-connect effect redraw — same as a drag.
+  const handleEditStop = useCallback((id: string, edits: StopEdits) => {
+    setStops(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const moved = s.coords.lat !== edits.coords.lat || s.coords.lng !== edits.coords.lng;
+      if (moved) {
+        setIsOptimized(false);
+        setRouteResult(null);
+        setRouteGeometry(null);
+      }
+      return { ...s, address: edits.address, coords: edits.coords, label: edits.label, timeWindow: edits.timeWindow };
+    }));
+  }, []);
 
   const handleOptimize = useCallback(async () => {
     if (!homeBase || stops.length < 2) return;
@@ -187,6 +229,25 @@ export default function Index() {
     if (!homeBase || stops.length < 1 || isOptimized) return;
     const mySeq = ++drawSeq.current;
     (async () => {
+      // Auto-reoptimize: when the toggle is on and there are ≥2 stops, every edit
+      // re-runs the full optimizer (reorders for efficiency) instead of just
+      // redrawing the current-order line. Costs an extra OSRM round-trip per edit,
+      // which is why it's opt-in. With <2 stops there's nothing to reorder, so we
+      // fall through to the plain connected-line redraw.
+      if (autoReoptimize && stops.length >= 2) {
+        const result = await optimizeRoute(homeBase.coords, stops);
+        if (mySeq !== drawSeq.current) return; // superseded by a newer edit
+        if (result) {
+          const ordered = result.orderedStopIds
+            .map(id => stops.find(s => s.id === id))
+            .filter(Boolean) as Stop[];
+          setStops(ordered);
+          setRouteResult(result);
+          setRouteGeometry(result.geometry);
+          setIsOptimized(true);
+        }
+        return;
+      }
       const result = await getRouteForOrderedStops(homeBase.coords, stops);
       if (mySeq !== drawSeq.current) return; // superseded by a newer edit
       if (result) {
@@ -194,9 +255,10 @@ export default function Index() {
         setRouteResult(result);
       }
     })();
-    // depend on the identity of the stop sequence + home base, not object refs
+    // depend on the identity of the stop sequence + each stop's coords (so a dragged
+    // pin redraws the line) + home base + the auto-reoptimize toggle, not object refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homeBase?.coords.lat, homeBase?.coords.lng, stops.map(s => s.id).join(','), isOptimized]);
+  }, [homeBase?.coords.lat, homeBase?.coords.lng, stops.map(s => `${s.id}:${s.coords.lat},${s.coords.lng}`).join(','), isOptimized, autoReoptimize]);
 
   // ── Parent-app bridge (future appointments/clients integration) ───────────
   // The tool runs in an iframe with no bridge today. This listener is the seam:
@@ -266,8 +328,7 @@ export default function Index() {
           stops={stops}
           onReorder={(newStops) => { setStops(newStops); setIsOptimized(false); setRouteResult(null); setRouteGeometry(null); }}
           onDelete={(id) => { setStops(s => s.filter(x => x.id !== id)); setIsOptimized(false); setRouteResult(null); setRouteGeometry(null); }}
-          onUpdateLabel={(id, label) => setStops(s => s.map(x => x.id === id ? { ...x, label } : x))}
-          onUpdateTimeWindow={(id, tw) => setStops(s => s.map(x => x.id === id ? { ...x, timeWindow: tw } : x))}
+          onEdit={setEditingStop}
         />
       )}
 
@@ -277,13 +338,22 @@ export default function Index() {
         homeBase={homeBase}
         optimizing={optimizing}
         isOptimized={isOptimized}
+        departureMins={departureMins}
+        dwellMins={dwellMins}
         onOptimize={handleOptimize}
         onClear={handleClear}
         onSave={handleSave}
         onTryDemo={handleTryDemo}
       />
 
-      <RouteDetails routeResult={routeResult} stopCount={stops.length} />
+      <RouteDetails
+        routeResult={routeResult}
+        stopCount={stops.length}
+        departureMins={departureMins}
+        onDepartureChange={setDepartureMins}
+        dwellMins={dwellMins}
+        onDwellChange={setDwellMins}
+      />
     </div>
   );
 
@@ -308,6 +378,7 @@ export default function Index() {
             onAddressSearch={handleAddStop}
             onAddStopResult={handleAddStopResult}
             onMapClick={handleMapClick}
+            onStopDragEnd={handleStopDragEnd}
             searchLoading={searchLoading}
             bias={searchBias}
           />
@@ -333,6 +404,7 @@ export default function Index() {
               onAddressSearch={handleAddStop}
               onAddStopResult={handleAddStopResult}
               onMapClick={handleMapClick}
+              onStopDragEnd={handleStopDragEnd}
               searchLoading={searchLoading}
               bias={searchBias}
             />
@@ -340,7 +412,22 @@ export default function Index() {
         </Row>
       )}
 
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} homeBase={homeBase} onSetHomeBase={setHomeBase} />
+      <EditStopModal
+        stop={editingStop}
+        open={editingStop !== null}
+        onClose={() => setEditingStop(null)}
+        onSave={handleEditStop}
+        bias={searchBias}
+      />
+
+      <SettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        homeBase={homeBase}
+        onSetHomeBase={setHomeBase}
+        autoReoptimize={autoReoptimize}
+        onSetAutoReoptimize={setAutoReoptimize}
+      />
       <HistoryDrawer
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
